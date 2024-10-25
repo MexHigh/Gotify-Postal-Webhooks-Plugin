@@ -10,20 +10,14 @@ import (
 	"github.com/gotify/plugin-api"
 )
 
-const routeName = "webhook"
-
-const (
-	ContentTypeUnknown = iota
-	ContentTypeJSON
-	ContentTypeMarkdown
-)
+const routeName = "postal"
 
 // GetGotifyPluginInfo returns gotify plugin info
 func GetGotifyPluginInfo() plugin.Info {
 	return plugin.Info{
-		Name:        "Webhooks",
-		Description: "Plugin that enables Gotify to receive generic webhooks",
-		ModulePath:  "git.leon.wtf/leon/gotify-webhook-plugin",
+		Name:        "Postal Webhooks",
+		Description: "Plugin that enables Gotify to receive webhooks from Postal",
+		ModulePath:  "git.leon.wtf/leon/gotify-postal-webhook-plugin",
 		Author:      "Leon Schmidt <mail@leon-schmidt.dev>",
 		Website:     "https://leon-schmidt.dev",
 	}
@@ -46,9 +40,7 @@ func (p *Plugin) Disable() error {
 	return nil
 }
 
-const helpMessageTemplate = "Use this **webhook URL**: %s\n\n" +
-	"You can set the content type of the payload via the `content-type` query parameter (e.g. `%s?content-type=application/json`) or the `content-type` or `x-content-type` request headers.\n\n" +
-	"The following content types are supported: `application/json`, `text/markdown`"
+const helpMessageTemplate = "Use this **webhook URL**: %s"
 
 // GetDisplay implements plugin.Displayer
 func (p *Plugin) GetDisplay(location *url.URL) string {
@@ -57,7 +49,7 @@ func (p *Plugin) GetDisplay(location *url.URL) string {
 		baseHost = fmt.Sprintf("%s://%s", location.Scheme, location.Host)
 	}
 	webhookURL := baseHost + p.basePath + routeName
-	return fmt.Sprintf(helpMessageTemplate, webhookURL, webhookURL)
+	return fmt.Sprintf(helpMessageTemplate, webhookURL)
 }
 
 // SetMessageHandler implements plugin.Messenger
@@ -83,67 +75,55 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			return
 		}
 
-		contentType := getContentTypeFromRequest(c.Request)
-		// if content type is unknown, try JSON anyway (some clients cannot set a content-type)
-		if contentType == ContentTypeUnknown {
-			var data interface{}
-			err = json.Unmarshal(bytes, &data)
-			if err == nil {
-				contentType = ContentTypeJSON
-			}
-		}
-
-		switch contentType {
-		case ContentTypeJSON:
-			// try to parse json to verify format
-			var data interface{}
-			err = json.Unmarshal(bytes, &data)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error parsing JSON message",
-					err.Error(),
-					c.ClientIP(),
-					false,
-				))
-				return
-			}
-			// re-indent JSON
-			jsonStr, err := json.MarshalIndent(data, "", "  ")
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error re-marshalling payload",
-					err.Error(),
-					c.ClientIP(),
-					true,
-				))
-				return
-			}
+		// unmarshal body
+		var message WebhookMessage
+		if err := json.Unmarshal(bytes, &message); err != nil {
 			p.msgHandler.SendMessage(makeMarkdownMessage(
-				"Recieved webhook with JSON",
-				string(jsonStr),
-				c.ClientIP(),
-				true,
-			))
-		case ContentTypeMarkdown:
-			p.msgHandler.SendMessage(makeMarkdownMessage(
-				"Recieved webhook with Markdown",
-				string(bytes),
+				"Error unmarshalling Postal message",
+				err.Error(),
 				c.ClientIP(),
 				false,
 			))
-		case ContentTypeUnknown:
-			// just send the string
-			p.msgHandler.SendMessage(makeMarkdownMessage(
-				"Recieved webhook with unknown content type",
-				string(bytes),
-				c.ClientIP(),
-				true,
-			))
+			return
 		}
+
+		notificationTitle := ""
+		notificationMessage := ""
+
+		switch message.Event {
+		case WebhookMessageEventMessageSent,
+			WebhookMessageEventMessageDelayed,
+			WebhookMessageEventMessageDeliveryFailed,
+			WebhookMessageEventMessageHeld: // All message events
+			// TODO
+		case WebhookMessageEventMessageLoaded:
+			// TODO
+		case WebhookMessageEventMessageBounced:
+			// TODO
+		case WebhookMessageEventMessageLinkClicked:
+			// TODO
+		case WebhookMessageEventDomainDNSError:
+			// TODO
+		default:
+			p.msgHandler.SendMessage(makeMarkdownMessage(
+				"Read unknown event name in Postal massage",
+				fmt.Sprintf("Event name was '%s'", string(message.Event)),
+				c.ClientIP(),
+				false,
+			))
+			return
+		}
+
+		// send final message
+		p.msgHandler.SendMessage(makeMarkdownMessage(
+			notificationTitle,
+			notificationMessage,
+			c.ClientIP(),
+			false,
+		))
 	}
 
 	mux.POST("/"+routeName, webhookHandler)
-	mux.PUT("/"+routeName, webhookHandler)
 }
 
 // NewGotifyPluginInstance creates a plugin instance for a user context.
