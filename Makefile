@@ -1,6 +1,6 @@
 BUILDDIR=./build
 GOTIFY_VERSION=master
-PLUGIN_NAME=gotify-webhooks
+PLUGIN_NAME=gotify-postal-webhooks
 GO_VERSION=`cat $(BUILDDIR)/gotify-server-go-version`
 DOCKER_BUILD_IMAGE=gotify/build
 DOCKER_WORKDIR=/proj
