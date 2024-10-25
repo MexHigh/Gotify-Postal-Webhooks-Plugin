@@ -7,14 +7,22 @@ import (
 )
 
 const (
-	messageTemplate          = "Sender: %s\n\n%s"
-	messageTemplateCodeBlock = "Sender: %s\n\n```\n%s\n```"
+	messageTemplate = "Sender: %s\n\n%s"
 )
 
-func makeMarkdownMessage(title, message, remoteIP string, withinCodeBlock bool) plugin.Message {
+func makeMarkdownMessage(title, message, remoteIP string, clickURL *string) plugin.Message {
 	tmpl := messageTemplate
-	if withinCodeBlock {
-		tmpl = messageTemplateCodeBlock
+
+	extras := map[string]interface{}{}
+	extras["client::display"] = map[string]interface{}{
+		"contentType": "text/markdown",
+	}
+	if clickURL != nil {
+		extras["client::notification"] = map[string]interface{}{
+			"click": map[string]string{ // map[string]interface{} ?
+				"url": *clickURL,
+			},
+		}
 	}
 
 	return plugin.Message{
@@ -23,10 +31,6 @@ func makeMarkdownMessage(title, message, remoteIP string, withinCodeBlock bool) 
 			remoteIP,
 			message,
 		),
-		Extras: map[string]interface{}{
-			"client::display": map[string]interface{}{
-				"contentType": "text/markdown",
-			},
-		},
+		Extras: extras,
 	}
 }
