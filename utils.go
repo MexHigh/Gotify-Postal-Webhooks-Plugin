@@ -34,3 +34,9 @@ func makeMarkdownMessage(title, message, remoteIP string, clickURL *string) plug
 		Extras: extras,
 	}
 }
+
+func makeClickURL(messageID int, host, org, name, appendix string) *string {
+	clickURLTeml := "%s/org/%s/servers/%s/messages/%d%s" // host, org, server name, message ID, appendix
+	s := fmt.Sprintf(clickURLTeml, host, org, name, messageID, appendix)
+	return &s
+}

@@ -8,14 +8,16 @@ import (
 
 // TODO add emojis
 
-func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType WebhookMessageEvent) (*GotifyMessage, error) {
+func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType WebhookMessageEvent, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
 	var msg MessageStatusEvent
 	if err := json.Unmarshal(payload, &msg); err != nil {
 		return nil, err
 	}
 
 	message := &GotifyMessage{}
-	message.clickURL = p.config.makeClickURL(msg.Message.ID, "")
+	if msInfo != nil {
+		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "")
+	}
 
 	// message status events can have several eventTypes, so we need to switch here again
 	switch eventType {
@@ -40,47 +42,56 @@ func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType Web
 	return message, nil
 }
 
-func (p *Plugin) handleMessageLoadedEvent(payload json.RawMessage) (*GotifyMessage, error) {
+func (p *Plugin) handleMessageLoadedEvent(payload json.RawMessage, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
 	var msg MessageLoadedEvent
 	if err := json.Unmarshal(payload, &msg); err != nil {
 		return nil, err
 	}
 
 	message := &GotifyMessage{}
-	message.clickURL = p.config.makeClickURL(msg.Message.ID, "/activity")
+	if msInfo != nil {
+		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "/activity")
+	}
 
-	// TODO
+	// TODO implement later
 	message.Title = "not implemented"
+	message.Message = "unimplemented message load event message"
 
 	return message, nil
 }
 
-func (p *Plugin) handleMessageBounceEvent(payload json.RawMessage) (*GotifyMessage, error) {
+func (p *Plugin) handleMessageBounceEvent(payload json.RawMessage, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
 	var msg MessageBounceEvent
 	if err := json.Unmarshal(payload, &msg); err != nil {
 		return nil, err
 	}
 
 	message := &GotifyMessage{}
-	message.clickURL = p.config.makeClickURL(msg.OriginalMessage.ID, "")
+	if msInfo != nil {
+		message.clickURL = makeClickURL(msg.OriginalMessage.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "")
+	}
 
-	// TODO
+	// TODO implement later
 	message.Title = "not implemented"
+	message.Message = "unimplemented bounce event message"
 
 	return message, nil
 }
 
-func (p *Plugin) handleMessageClickEvent(payload json.RawMessage) (*GotifyMessage, error) {
+func (p *Plugin) handleMessageClickEvent(payload json.RawMessage, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
 	var msg MessageClickEvent
 	if err := json.Unmarshal(payload, &msg); err != nil {
 		return nil, err
 	}
 
 	message := &GotifyMessage{}
-	message.clickURL = p.config.makeClickURL(msg.Message.ID, "/activity")
+	if msInfo != nil {
+		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "/activity")
+	}
 
-	// TODO
+	// TODO implement later
 	message.Title = "not implemented"
+	message.Message = "unimplemented click event message"
 
 	return message, nil
 }
@@ -92,9 +103,9 @@ func (p *Plugin) handleDNSErrorEvent(payload json.RawMessage) (*GotifyMessage, e
 	}
 
 	message := &GotifyMessage{}
-	//message.clickURL = p.config.makeClickURL(msg.Message.ID)
+	// this message type cannot have a click url, since the payload does not contain a message ID
 
-	// TODO
+	// TODO implement later
 	message.Title = "not implemented"
 
 	return message, nil

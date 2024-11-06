@@ -26,10 +26,16 @@ func GetGotifyPluginInfo() plugin.Info {
 type GotifyMessage struct {
 	Title    string
 	Message  string
-	clickURL *string // optional
+	clickURL *string
 }
 
-type PluginConfig struct {
+type PostalMailserverInfo struct {
+	Host         string
+	Organization string
+	Name         string
+}
+
+/*type PluginConfig struct {
 	Host           *string
 	Organization   *string
 	MailserverName *string
@@ -43,14 +49,14 @@ func (pc *PluginConfig) makeClickURL(messageID int, appendix string) *string {
 	} else {
 		return nil
 	}
-}
+}*/
 
 // Plugin is plugin instance
 type Plugin struct {
 	userCtx    plugin.UserContext
 	msgHandler plugin.MessageHandler
 	basePath   string
-	config     *PluginConfig
+	//config     *PluginConfig
 }
 
 // Enable implements plugin.Plugin
@@ -64,7 +70,7 @@ func (p *Plugin) Disable() error {
 }
 
 // DefaultConfig implements plugin.Configurer
-func (p *Plugin) DefaultConfig() interface{} {
+/*func (p *Plugin) DefaultConfig() interface{} {
 	return &PluginConfig{nil, nil, nil}
 }
 
@@ -73,10 +79,11 @@ func (p *Plugin) ValidateAndSetConfig(c interface{}) error {
 	config := c.(*PluginConfig)
 	p.config = config
 	return nil
-}
+}*/
 
 const helpMessageTemplate = "Use this **webhook URL**: %s\n\n" +
-	"You can also configure the Postal instance and server here. Once done, Gotify messages can be clicked to open the corresponding dashboard in Postal."
+	"You can also set the Postal host, organization and server name as parameters (e.g. `?host=postal.example.com&org=some-org&name=main`). " +
+	"Once done, Gotify messages can be clicked to open the corresponding dashboard in Postal."
 
 // GetDisplay implements plugin.Displayer
 func (p *Plugin) GetDisplay(location *url.URL) string {
@@ -123,12 +130,25 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			return
 		}
 
-		notification := &GotifyMessage{}
+		// get optional params
+		var msInfo *PostalMailserverInfo
+		host, hostExists := c.Params.Get("host")
+		org, orgExists := c.Params.Get("org")
+		name, nameExists := c.Params.Get("name")
+		if hostExists && orgExists && nameExists {
+			msInfo = &PostalMailserverInfo{
+				Host:         host,
+				Organization: org,
+				Name:         name,
+			}
+		}
 
+		// switch message event type for parsing PayloadRaw
+		var notification *GotifyMessage
 		switch message.Event {
 		// all message status events
 		case WebhookMessageEventMessageSent, WebhookMessageEventMessageDelayed, WebhookMessageEventMessageDeliveryFailed, WebhookMessageEventMessageHeld:
-			notification, err = p.handleMessageStatusEvent(message.PayloadRaw, message.Event)
+			notification, err = p.handleMessageStatusEvent(message.PayloadRaw, message.Event, msInfo)
 			if err != nil {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
@@ -141,7 +161,7 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 
 		// message loaded events
 		case WebhookMessageEventMessageLoaded:
-			notification, err = p.handleMessageLoadedEvent(message.PayloadRaw)
+			notification, err = p.handleMessageLoadedEvent(message.PayloadRaw, msInfo)
 			if err != nil {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
@@ -154,7 +174,7 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 
 		// bounce events
 		case WebhookMessageEventMessageBounced:
-			notification, err = p.handleMessageBounceEvent(message.PayloadRaw)
+			notification, err = p.handleMessageBounceEvent(message.PayloadRaw, msInfo)
 			if err != nil {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
@@ -167,7 +187,7 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 
 		// linktracking link clicked
 		case WebhookMessageEventMessageLinkClicked:
-			notification, err = p.handleMessageClickEvent(message.PayloadRaw)
+			notification, err = p.handleMessageClickEvent(message.PayloadRaw, msInfo)
 			if err != nil {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
