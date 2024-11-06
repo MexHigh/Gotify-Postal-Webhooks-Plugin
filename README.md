@@ -8,6 +8,10 @@ Then simply move the `.so` file to the Gotify plugin directory and restart Gotif
 
 ### Usage
 
-Activate the Plugin, then go to the plugin's details panel to retrieve the **Webhook URL**. You can also set you Postal instance details here. If configured, clicking messages redirects you to the Postal message dashboard.
+Activate the Plugin, then go to the plugin's details panel to retrieve the **Webhook URL**. You can also see how to configure your Postal instance details there. If configured, clicking messages redirects you to the Postal message dashboard.
 
-The parsed payload is sent to the automatically created "Postal Webhooks" application channel along with the senders IP address. This channel can be renamed
+The parsed payload is sent to the automatically created "Postal Webhooks" application channel along with all neccesairy information. The channel can be renamed.
+
+### Current state
+
+All Webhooks for Postal v3 as documented [here](https://docs.postalserver.io/developer/webhooks) are fully implemented. 
