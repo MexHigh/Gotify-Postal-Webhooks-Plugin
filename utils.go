@@ -6,13 +6,7 @@ import (
 	"github.com/gotify/plugin-api"
 )
 
-const (
-	messageTemplate = "Sender: %s\n\n%s"
-)
-
-func makeMarkdownMessage(title, message, remoteIP string, clickURL *string) plugin.Message {
-	tmpl := messageTemplate
-
+func makeMarkdownMessage(title, message string, clickURL *string) plugin.Message {
 	extras := map[string]interface{}{}
 	extras["client::display"] = map[string]interface{}{
 		"contentType": "text/markdown",
@@ -26,12 +20,9 @@ func makeMarkdownMessage(title, message, remoteIP string, clickURL *string) plug
 	}
 
 	return plugin.Message{
-		Title: title,
-		Message: fmt.Sprintf(tmpl,
-			remoteIP,
-			message,
-		),
-		Extras: extras,
+		Title:   title,
+		Message: message,
+		Extras:  extras,
 	}
 }
 

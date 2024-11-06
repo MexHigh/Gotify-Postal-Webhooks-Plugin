@@ -1,4 +1,4 @@
-module git.leon.wtf/leon/gotify-webhook-plugin
+module git.leon.wtf/leon/gotify-postal-webhooks-plugin
 
 go 1.22.4
 

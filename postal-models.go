@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 )
 
 type WebhookMessageEvent string
@@ -23,7 +22,7 @@ const (
 
 type WebhookMessage struct {
 	Event      WebhookMessageEvent `json:"event"`
-	Timestamp  time.Time           `json:"timestamp"`
+	Timestamp  float64             `json:"timestamp"`
 	UUID       string              `json:"uuid"`
 	PayloadRaw json.RawMessage     `json:"payload"`
 }

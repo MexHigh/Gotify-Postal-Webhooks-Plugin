@@ -17,7 +17,7 @@ func GetGotifyPluginInfo() plugin.Info {
 	return plugin.Info{
 		Name:        "Postal Webhooks",
 		Description: "Plugin that enables Gotify to receive webhooks from Postal",
-		ModulePath:  "git.leon.wtf/leon/gotify-postal-webhook-plugin",
+		ModulePath:  "git.leon.wtf/leon/gotify-postal-webhooks-plugin",
 		Author:      "Leon Schmidt <mail@leon-schmidt.dev>",
 		Website:     "https://leon-schmidt.dev",
 	}
@@ -35,28 +35,16 @@ type PostalMailserverInfo struct {
 	Name         string
 }
 
-/*type PluginConfig struct {
-	Host           *string
-	Organization   *string
-	MailserverName *string
+type PluginConfig struct {
+	VerboseOutput bool
 }
-
-func (pc *PluginConfig) makeClickURL(messageID int, appendix string) *string {
-	if pc.Host != nil && pc.Organization != nil && pc.MailserverName != nil {
-		clickURLTeml := "%s/org/%s/servers/%s/messages/%d%s" // host, org, server name, message ID, appendix
-		url := fmt.Sprintf(clickURLTeml, pc.Host, pc.Organization, pc.MailserverName, messageID, appendix)
-		return &url
-	} else {
-		return nil
-	}
-}*/
 
 // Plugin is plugin instance
 type Plugin struct {
 	userCtx    plugin.UserContext
 	msgHandler plugin.MessageHandler
 	basePath   string
-	//config     *PluginConfig
+	config     *PluginConfig
 }
 
 // Enable implements plugin.Plugin
@@ -70,8 +58,8 @@ func (p *Plugin) Disable() error {
 }
 
 // DefaultConfig implements plugin.Configurer
-/*func (p *Plugin) DefaultConfig() interface{} {
-	return &PluginConfig{nil, nil, nil}
+func (p *Plugin) DefaultConfig() interface{} {
+	return &PluginConfig{false}
 }
 
 // ValidateAndSetConfig implements plugin.Configurer
@@ -79,7 +67,7 @@ func (p *Plugin) ValidateAndSetConfig(c interface{}) error {
 	config := c.(*PluginConfig)
 	p.config = config
 	return nil
-}*/
+}
 
 const helpMessageTemplate = "Use this **webhook URL**: %s\n\n" +
 	"You can also set the Postal host, organization and server name as parameters (e.g. `?host=postal.example.com&org=some-org&name=main`). " +
@@ -112,10 +100,14 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			p.msgHandler.SendMessage(makeMarkdownMessage(
 				"Error reading request body",
 				err.Error(),
-				c.ClientIP(),
 				nil,
 			))
 			return
+		}
+
+		if p.config.VerboseOutput {
+			fmt.Println("Incoming Postal webhook:")
+			fmt.Println(string(bytes))
 		}
 
 		// unmarshal body to generic WebhookMessage
@@ -124,7 +116,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			p.msgHandler.SendMessage(makeMarkdownMessage(
 				"Error unmarshalling Postal message",
 				err.Error(),
-				c.ClientIP(),
 				nil,
 			))
 			return
@@ -153,7 +144,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
 					err.Error(),
-					c.ClientIP(),
 					nil,
 				))
 				return
@@ -166,7 +156,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
 					err.Error(),
-					c.ClientIP(),
 					nil,
 				))
 				return
@@ -179,7 +168,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
 					err.Error(),
-					c.ClientIP(),
 					nil,
 				))
 				return
@@ -192,7 +180,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
 					err.Error(),
-					c.ClientIP(),
 					nil,
 				))
 				return
@@ -205,7 +192,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 				p.msgHandler.SendMessage(makeMarkdownMessage(
 					"Error handling message status event",
 					err.Error(),
-					c.ClientIP(),
 					nil,
 				))
 				return
@@ -215,7 +201,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			p.msgHandler.SendMessage(makeMarkdownMessage(
 				"Read unknown event name in Postal massage",
 				fmt.Sprintf("Event name was '%s'", string(message.Event)),
-				c.ClientIP(),
 				nil,
 			))
 			return
@@ -225,7 +210,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 		p.msgHandler.SendMessage(makeMarkdownMessage(
 			notification.Title,
 			notification.Message,
-			c.ClientIP(),
 			notification.clickURL, // may be nil
 		))
 	}
