@@ -1,7 +1,16 @@
 stages:
+  - test
   - build
   - upload
   - release
+
+test-plugin:
+  stage: test
+  image: golang:1.22.4
+  script:
+    - go mod tidy
+    - go test -cover
+  coverage: '/^coverage: (\d+\.\d+)% of statements$/'
 
 build-plugin:
   stage: build

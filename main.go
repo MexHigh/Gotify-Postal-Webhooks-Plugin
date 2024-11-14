@@ -110,17 +110,6 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			fmt.Println(string(bytes))
 		}
 
-		// unmarshal body to generic WebhookMessage
-		var message WebhookMessage
-		if err := json.Unmarshal(bytes, &message); err != nil {
-			p.msgHandler.SendMessage(makeMarkdownMessage(
-				"Error unmarshalling Postal message",
-				err.Error(),
-				nil,
-			))
-			return
-		}
-
 		// get optional params
 		var msInfo *PostalMailserverInfo
 		host, hostExists := c.Params.Get("host")
@@ -134,79 +123,11 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 			}
 		}
 
-		// switch message event type for parsing PayloadRaw
-		var notification *GotifyMessage
-		switch message.Event {
-		// all message status events
-		case WebhookMessageEventMessageSent, WebhookMessageEventMessageDelayed, WebhookMessageEventMessageDeliveryFailed, WebhookMessageEventMessageHeld:
-			notification, err = p.handleMessageStatusEvent(message.PayloadRaw, message.Event, msInfo)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error handling message status event",
-					err.Error(),
-					nil,
-				))
-				return
-			}
+		// this function does not return error since errors are handled within
+		// the function and returned "pre-serialized" as GotifyMessages
+		notification := p.processWebhookBytes(bytes, msInfo)
 
-		// message loaded events
-		case WebhookMessageEventMessageLoaded:
-			notification, err = p.handleMessageLoadedEvent(message.PayloadRaw, msInfo)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error handling message status event",
-					err.Error(),
-					nil,
-				))
-				return
-			}
-
-		// bounce events
-		case WebhookMessageEventMessageBounced:
-			notification, err = p.handleMessageBounceEvent(message.PayloadRaw, msInfo)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error handling message status event",
-					err.Error(),
-					nil,
-				))
-				return
-			}
-
-		// linktracking link clicked
-		case WebhookMessageEventMessageLinkClicked:
-			notification, err = p.handleMessageClickEvent(message.PayloadRaw, msInfo)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error handling message status event",
-					err.Error(),
-					nil,
-				))
-				return
-			}
-
-		// DNS error
-		case WebhookMessageEventDomainDNSError:
-			notification, err = p.handleDNSErrorEvent(message.PayloadRaw)
-			if err != nil {
-				p.msgHandler.SendMessage(makeMarkdownMessage(
-					"Error handling message status event",
-					err.Error(),
-					nil,
-				))
-				return
-			}
-
-		default:
-			p.msgHandler.SendMessage(makeMarkdownMessage(
-				"Read unknown event name in Postal massage",
-				fmt.Sprintf("Event name was '%s'", string(message.Event)),
-				nil,
-			))
-			return
-		}
-
-		// send final message
+		// send message
 		p.msgHandler.SendMessage(makeMarkdownMessage(
 			notification.Title,
 			notification.Message,
@@ -215,6 +136,88 @@ func (p *Plugin) RegisterWebhook(basePath string, mux *gin.RouterGroup) {
 	}
 
 	mux.POST("/"+routeName, webhookHandler)
+}
+
+func (p *Plugin) processWebhookBytes(bytes []byte, msInfo *PostalMailserverInfo) *GotifyMessage {
+	// unmarshal body to generic WebhookMessage
+	var message WebhookMessage
+	if err := json.Unmarshal(bytes, &message); err != nil {
+		return &GotifyMessage{
+			"Error unmarshalling Postal message",
+			err.Error(),
+			nil,
+		}
+	}
+
+	// switch message event type for parsing PayloadRaw
+	switch message.Event {
+	// all message status events
+	case WebhookMessageEventMessageSent, WebhookMessageEventMessageDelayed, WebhookMessageEventMessageDeliveryFailed, WebhookMessageEventMessageHeld:
+		notification, err := p.handleMessageStatusEvent(message.PayloadRaw, message.Event, msInfo)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	// message loaded events
+	case WebhookMessageEventMessageLoaded:
+		notification, err := p.handleMessageLoadedEvent(message.PayloadRaw, msInfo)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	// bounce events
+	case WebhookMessageEventMessageBounced:
+		notification, err := p.handleMessageBounceEvent(message.PayloadRaw, msInfo)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	// linktracking link clicked
+	case WebhookMessageEventMessageLinkClicked:
+		notification, err := p.handleMessageClickEvent(message.PayloadRaw, msInfo)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	// DNS error
+	case WebhookMessageEventDomainDNSError:
+		notification, err := p.handleDNSErrorEvent(message.PayloadRaw)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	default:
+		return &GotifyMessage{
+			"Read unknown event name in Postal massage",
+			fmt.Sprintf("Event name was '%s'", string(message.Event)),
+			nil,
+		}
+	}
 }
 
 // NewGotifyPluginInstance creates a plugin instance for a user context.
