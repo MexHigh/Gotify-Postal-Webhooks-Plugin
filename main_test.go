@@ -33,7 +33,7 @@ var messageSentEvent = []byte(`{
 	}
 }`)
 
-var messageBounced = []byte(`{
+var messageBouncedEvent = []byte(`{
 	"event": "MessageBounced",
 	"timestamp": 0.0,
 	"uuid": "irrelevant",
@@ -61,6 +61,77 @@ var messageBounced = []byte(`{
 			"timestamp":1477945179.12994,
 			"spam_status":"NotSpam",
 			"tag":null
+		}
+	}
+}`)
+
+var messageLinkClickedEvent = []byte(`{
+	"event": "MessageLinkClicked",
+	"timestamp": 0.0,
+	"uuid": "irrelevant",
+	"payload": {
+		"url":"https://atech.media",
+		"token":"VJzsFA0S",
+		"ip_address":"185.22.208.2",
+		"user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36",
+		"message":{
+			"id":12345,
+			"token":"abcdef123",
+			"direction":"outgoing",
+			"message_id":"5817a64332f44_4ec93ff59e79d154565eb@app34.mail",
+			"to":"test@example.com",
+			"from":"sales@awesomeapp.com",
+			"subject":"Welcome to AwesomeApp",
+			"timestamp":1477945177.12994,
+			"spam_status":"NotSpam",
+			"tag":"welcome"
+		}
+	}
+}`)
+
+var messageLoadedEvent = []byte(`{
+	"event": "MessageLoaded",
+	"timestamp": 0.0,
+	"uuid": "irrelevant",
+	"payload": {
+		"ip_address":"185.22.208.2",
+		"user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36",
+		"message":{
+			"id":12345,
+			"token":"abcdef123",
+			"direction":"outgoing",
+			"message_id":"5817a64332f44_4ec93ff59e79d154565eb@app34.mail",
+			"to":"test@example.com",
+			"from":"sales@awesomeapp.com",
+			"subject":"Welcome to AwesomeApp",
+			"timestamp":1477945177.12994,
+			"spam_status":"NotSpam",
+			"tag":"welcome"
+		}
+	}
+}`)
+
+var domainDNSErrorEvent = []byte(`{
+	"event": "DomainDNSError",
+	"timestamp": 0.0,
+	"uuid": "irrelevant",
+	"payload": {
+		"domain":"example.com",
+		"uuid":"820b47a4-4dfd-42e4-ae6a-1e5bed5a33fd",
+		"dns_checked_at":1477945711.5502,
+		"spf_status":"OK",
+		"spf_error":null,
+		"dkim_status":"Invalid",
+		"dkim_error":"The DKIM record at example.com does not match the record we have provided. Please check it has been copied correctly.",
+		"mx_status":"Missing",
+		"mx_error":null,
+		"return_path_status":"OK",
+		"return_path_error":null,
+		"server":{
+			"uuid":"54529725-8807-4069-ab29-a3746c1bbd98",
+			"name":"AwesomeApp Mail Server",
+			"permalink":"awesomeapp",
+			"organization":"atech"
 		}
 	}
 }`)
@@ -118,6 +189,54 @@ func TestProcessWebhookMessageSentTitle(t *testing.T) {
 	mdMsg := makeMarkdownMessage(result.Title, result.Message, result.clickURL)
 
 	if mdMsg.Title != EmojiCheckMark+" Message delivered successfully" {
+		t.Fatal("Message title does not match, got: ", mdMsg.Title)
+	}
+}
+
+func TestProcessWebhookMessageBouncedTitle(t *testing.T) {
+	p := &Plugin{
+		config: &PluginConfig{},
+	}
+	result := p.processWebhookBytes(messageBouncedEvent, nil)
+	mdMsg := makeMarkdownMessage(result.Title, result.Message, result.clickURL)
+
+	if mdMsg.Title != EmojiExclamMark+" Bounce message received" {
+		t.Fatal("Message title does not match, got: ", mdMsg.Title)
+	}
+}
+
+func TestProcessWebhookMessageLinkClickedTitle(t *testing.T) {
+	p := &Plugin{
+		config: &PluginConfig{},
+	}
+	result := p.processWebhookBytes(messageLinkClickedEvent, nil)
+	mdMsg := makeMarkdownMessage(result.Title, result.Message, result.clickURL)
+
+	if mdMsg.Title != EmojiEyes+" Link in message was clicked" {
+		t.Fatal("Message title does not match, got: ", mdMsg.Title)
+	}
+}
+
+func TestProcessWebhookMessageLoadedTitle(t *testing.T) {
+	p := &Plugin{
+		config: &PluginConfig{},
+	}
+	result := p.processWebhookBytes(messageLoadedEvent, nil)
+	mdMsg := makeMarkdownMessage(result.Title, result.Message, result.clickURL)
+
+	if mdMsg.Title != EmojiEyes+" Message was opened" {
+		t.Fatal("Message title does not match, got: ", mdMsg.Title)
+	}
+}
+
+func TestProcessWebhookDomainDNSErrorTitle(t *testing.T) {
+	p := &Plugin{
+		config: &PluginConfig{},
+	}
+	result := p.processWebhookBytes(domainDNSErrorEvent, nil)
+	mdMsg := makeMarkdownMessage(result.Title, result.Message, result.clickURL)
+
+	if mdMsg.Title != EmojiExclamMark+" DNS setup check failed" {
 		t.Fatal("Message title does not match, got: ", mdMsg.Title)
 	}
 }

@@ -8,8 +8,9 @@ import (
 
 const (
 	EmojiCheckMark   = "\xE2\x9C\x85"
-	EmojiExclamMark  = "\xE2\x9D\x97"
 	EmojiWarningSign = "\xE2\x9A\xA0"
+	EmojiExclamMark  = "\xE2\x9D\x97"
+	EmojiEyes        = "\xF0\x9F\x91\x80"
 )
 
 func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType WebhookMessageEvent, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
@@ -41,7 +42,7 @@ func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType Web
 	message.Message += msg.Details + "\n\n"
 	message.Message += "---\n\n"
 	if msg.Time != 0.0 {
-		message.Message += fmt.Sprintf("**Delivery time:** %f seconds\n\n", msg.Time)
+		message.Message += fmt.Sprintf("**Delivery time:** %.2f seconds\n\n", msg.Time)
 	} else {
 		message.Message += "**Delivery time:** instant\n\n"
 	}
@@ -51,24 +52,6 @@ func (p *Plugin) handleMessageStatusEvent(payload json.RawMessage, eventType Web
 	} else {
 		message.Message += "**Output:** none"
 	}
-
-	return message, nil
-}
-
-func (p *Plugin) handleMessageLoadedEvent(payload json.RawMessage, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
-	var msg MessageLoadedEvent
-	if err := json.Unmarshal(payload, &msg); err != nil {
-		return nil, err
-	}
-
-	message := &GotifyMessage{}
-	if msInfo != nil {
-		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "/activity")
-	}
-
-	// TODO implement later
-	message.Title = "not implemented"
-	message.Message = "unimplemented message load event message"
 
 	return message, nil
 }
@@ -84,9 +67,12 @@ func (p *Plugin) handleMessageBounceEvent(payload json.RawMessage, msInfo *Posta
 		message.clickURL = makeClickURL(msg.OriginalMessage.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "")
 	}
 
-	// TODO implement later
-	message.Title = "not implemented"
-	message.Message = "unimplemented bounce event message"
+	message.Title = EmojiExclamMark + " Bounce message received"
+
+	message.Message += fmt.Sprintf("_From %s to %s: \"%s\"_\n\n", msg.OriginalMessage.From, msg.OriginalMessage.To, msg.OriginalMessage.Subject)
+	message.Message += "---\n\n"
+	message.Message += fmt.Sprintf("Sender of bounce message: %s\n\n", msg.Bounce.From)
+	message.Message += "See the original message page for details!"
 
 	return message, nil
 }
@@ -102,9 +88,32 @@ func (p *Plugin) handleMessageClickEvent(payload json.RawMessage, msInfo *Postal
 		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "/activity")
 	}
 
-	// TODO implement later
-	message.Title = "not implemented"
-	message.Message = "unimplemented click event message"
+	message.Title = EmojiEyes + " Link in message was clicked"
+
+	message.Message += fmt.Sprintf("_From %s to %s: \"%s\"_\n\n", msg.Message.From, msg.Message.To, msg.Message.Subject)
+	message.Message += "---\n\n"
+	message.Message += fmt.Sprintf("Clicked link: %s\n\n", msg.URL)
+	message.Message += fmt.Sprintf("Opened from **%s** with user agent \"%s\"", msg.IPAddress, msg.UserAgent)
+
+	return message, nil
+}
+
+func (p *Plugin) handleMessageLoadedEvent(payload json.RawMessage, msInfo *PostalMailserverInfo) (*GotifyMessage, error) {
+	var msg MessageLoadedEvent
+	if err := json.Unmarshal(payload, &msg); err != nil {
+		return nil, err
+	}
+
+	message := &GotifyMessage{}
+	if msInfo != nil {
+		message.clickURL = makeClickURL(msg.Message.ID, msInfo.Host, msInfo.Organization, msInfo.Name, "/activity")
+	}
+
+	message.Title = EmojiEyes + " Message was opened"
+
+	message.Message += fmt.Sprintf("_From %s to %s: \"%s\"_\n\n", msg.Message.From, msg.Message.To, msg.Message.Subject)
+	message.Message += "---\n\n"
+	message.Message += fmt.Sprintf("Opened from **%s** with user agent \"%s\"", msg.IPAddress, msg.UserAgent)
 
 	return message, nil
 }
@@ -116,10 +125,16 @@ func (p *Plugin) handleDNSErrorEvent(payload json.RawMessage) (*GotifyMessage, e
 	}
 
 	message := &GotifyMessage{}
-	// this message type cannot have a click url, since the payload does not contain a message ID
+	message.clickURL = &msg.Server.Permalink // don't know if this permalink works
 
-	// TODO implement later
-	message.Title = "not implemented"
+	message.Title = EmojiExclamMark + " DNS setup check failed"
+
+	message.Message += fmt.Sprintf("Postal detected that your DNS records are incorrect!\n\nAffected domain: **%s** in Server **%s**\n\n", msg.Domain, msg.Server.Name)
+	message.Message += "---\n\n"
+	message.Message += fmt.Sprintf("**SPF:** %s\n\n", msg.SPFStatus)
+	message.Message += fmt.Sprintf("**DKIM:** %s\n\n", msg.DKIMStatus)
+	message.Message += fmt.Sprintf("**MX:** %s\n\n", msg.MXStatus)
+	message.Message += fmt.Sprintf("**RP:** %s", msg.ReturnPathStatus)
 
 	return message, nil
 }

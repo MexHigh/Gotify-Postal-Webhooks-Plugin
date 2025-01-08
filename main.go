@@ -163,18 +163,6 @@ func (p *Plugin) processWebhookBytes(bytes []byte, msInfo *PostalMailserverInfo)
 		}
 		return notification
 
-	// message loaded events
-	case WebhookMessageEventMessageLoaded:
-		notification, err := p.handleMessageLoadedEvent(message.PayloadRaw, msInfo)
-		if err != nil {
-			return &GotifyMessage{
-				"Error handling message status event",
-				err.Error(),
-				nil,
-			}
-		}
-		return notification
-
 	// bounce events
 	case WebhookMessageEventMessageBounced:
 		notification, err := p.handleMessageBounceEvent(message.PayloadRaw, msInfo)
@@ -190,6 +178,18 @@ func (p *Plugin) processWebhookBytes(bytes []byte, msInfo *PostalMailserverInfo)
 	// linktracking link clicked
 	case WebhookMessageEventMessageLinkClicked:
 		notification, err := p.handleMessageClickEvent(message.PayloadRaw, msInfo)
+		if err != nil {
+			return &GotifyMessage{
+				"Error handling message status event",
+				err.Error(),
+				nil,
+			}
+		}
+		return notification
+
+	// message loaded events
+	case WebhookMessageEventMessageLoaded:
+		notification, err := p.handleMessageLoadedEvent(message.PayloadRaw, msInfo)
 		if err != nil {
 			return &GotifyMessage{
 				"Error handling message status event",
